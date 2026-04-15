@@ -1,8 +1,8 @@
 package database;
 
-import model.Fare;
-import model.Passenger;
-import model.Ticket;
+import entity.Fare;
+import entity.Passenger;
+import entity.Ticket;
 
 import java.sql.*;
 import java.util.ArrayList;

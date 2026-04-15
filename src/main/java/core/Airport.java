@@ -1,9 +1,9 @@
 package core;
 
 import database.DatabaseManager;
-import model.Fare;
-import model.Passenger;
-import model.Ticket;
+import entity.Fare;
+import entity.Passenger;
+import entity.Ticket;
 import util.InputUtils;
 
 import java.sql.SQLException;
