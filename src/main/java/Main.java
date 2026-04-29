@@ -5,7 +5,7 @@ public class Main {
     public static void main(String[] args) {
         Airport airport = Airport.getInstance();
 
-        // обработчик завершения
+        // обработчик завершения - аналог деструктора
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             airport.shutdown();
         }));
