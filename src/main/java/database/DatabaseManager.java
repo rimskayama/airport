@@ -1,6 +1,7 @@
 package database;
 
 import entity.Fare;
+import entity.FareClass;
 import entity.Passenger;
 import entity.Ticket;
 
@@ -30,6 +31,7 @@ public class DatabaseManager {
         return connection;
     }
 
+    // аналог деструктора
     public static void closeConnection() {
         if (connection != null) {
             try {
@@ -110,7 +112,7 @@ public class DatabaseManager {
             pstmt.setString(1, fare.fromLocation());
             pstmt.setString(2, fare.toLocation());
             pstmt.setDouble(3, fare.getPrice());
-            pstmt.setInt(4, fare.getClassChoice());
+            pstmt.setInt(4, fare.getClassChoice().getCode());
             pstmt.executeUpdate();
 
             // Получаем сгенерированный ID
@@ -130,11 +132,15 @@ public class DatabaseManager {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
+
+                int classCode = rs.getInt("class_choice");
+                FareClass fareClass = FareClass.fromIndex(classCode);
+
                 Fare fare = new Fare(
                         rs.getString("from_location"),
                         rs.getString("to_location"),
                         rs.getDouble("price"),
-                        rs.getInt("class_choice")
+                        fareClass
                 );
                 fare.setId(rs.getInt("id"));
                 fares.add(fare);
@@ -238,12 +244,14 @@ public class DatabaseManager {
                         rs.getString("passport_id"),
                         rs.getString("birth_date")
                 );
+                int classCode = rs.getInt("class_choice");
+                FareClass fareClass = FareClass.fromIndex(classCode);
 
                 Fare fare = new Fare(
                         rs.getString("from_location"),
                         rs.getString("to_location"),
                         rs.getDouble("price"),
-                        rs.getInt("class_choice")
+                        fareClass
                 );
 
                 Ticket ticket = new Ticket(

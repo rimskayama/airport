@@ -2,6 +2,7 @@ package core;
 
 import database.DatabaseManager;
 import entity.Fare;
+import entity.FareClass;
 import entity.Passenger;
 import entity.Ticket;
 import util.InputUtils;
@@ -54,12 +55,12 @@ public class Airport {
         String toLocation = InputUtils.getStringInput("Введите пункт назначения: ");
         double price = InputUtils.getDoubleInput("Введите цену: ");
         System.out.println("Выберите класс:");
-        System.out.println("0 - Эконом");
-        System.out.println("1 - Бизнес");
-        System.out.println("2 - Первый");
+        for (FareClass fc : FareClass.values()) {
+            System.out.println(fc.ordinal() + " - " + fc.getName());
+        }
         int classChoice = InputUtils.getIntInput("Ваш выбор: ", 0, 2);
-
-        Fare newFare = new Fare(fromLocation, toLocation, price, classChoice);
+        FareClass selectedClass = FareClass.fromIndex(classChoice);
+        Fare newFare = new Fare(fromLocation, toLocation, price, selectedClass);
 
         try {
             DatabaseManager.saveFare(newFare);
@@ -173,7 +174,7 @@ public class Airport {
     }
 
     public void shutdown() {
-        DatabaseManager.closeConnection();
+        DatabaseManager.closeConnection(); // аналог деструктора
         System.out.println("Соединение с БД закрыто");
     }
 }
