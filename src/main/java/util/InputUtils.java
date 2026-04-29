@@ -6,17 +6,20 @@ public class InputUtils {
 
     public static int getIntInput(String invite, int min, int max) {
         while (true) {
-            int input = 0;
             try {
                 System.out.println(invite);
-                input = Integer.parseInt(scanner.nextLine());
+                int input = Integer.parseInt(scanner.nextLine());
+
+                if (input < min || input > max) {
+                    System.out.println("Ошибка: Диапазон выбора от " + min + " до " + max + ". Попробуйте снова.");
+                    continue;
+                }
+
+                return input;
+
             } catch (NumberFormatException e) {
                 System.out.println("Ошибка: Должно быть числом. Попробуйте снова.");
             }
-            if (input < min || input > max) {
-                System.out.println("Ошибка: Диапазон выбора от " + min + " до " + max + ". Попробуйте снова.");
-            }
-            else return input;
         }
     }
 
