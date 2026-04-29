@@ -14,7 +14,7 @@ public class InputUtils {
                 System.out.println("Ошибка: Должно быть числом. Попробуйте снова.");
             }
             if (input < min || input > max) {
-                System.out.println("Ошибка: Диапазон выбора от 0 до 6. Попробуйте снова.");
+                System.out.println("Ошибка: Диапазон выбора от " + min + " до " + max + ". Попробуйте снова.");
             }
             else return input;
         }
