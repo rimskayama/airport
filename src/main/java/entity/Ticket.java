@@ -5,12 +5,16 @@ public class Ticket {
     private Passenger passenger;
     private Fare fare;
     private String purchaseDate;
+    private double finalPrice;
 
-    public Ticket(String ticketNumber, Passenger passenger, Fare fare, String purchaseDate) {
+    public Ticket(
+            String ticketNumber, Passenger passenger, Fare fare,
+            String purchaseDate, double finalPrice) {
         this.ticketNumber = ticketNumber;
         this.passenger = passenger;
         this.fare = fare;
         this.purchaseDate = purchaseDate;
+        this.finalPrice = finalPrice;
     }
 
     public double price() {
@@ -21,6 +25,7 @@ public class Ticket {
     public Passenger getPassenger() { return passenger; }
     public Fare getFare() { return fare; }
     public String getPurchaseDate() { return purchaseDate; }
+    public double getPrice() { return finalPrice; }
 
     @Override
     public String toString() {

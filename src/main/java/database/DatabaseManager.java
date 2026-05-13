@@ -4,6 +4,9 @@ import entity.Fare;
 import entity.FareClass;
 import entity.Passenger;
 import entity.Ticket;
+import strategy.DiscountStrategy;
+import strategy.NoDiscount;
+import strategy.RouteDiscount;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -61,7 +64,8 @@ public class DatabaseManager {
                 from_location TEXT NOT NULL,
                 to_location TEXT NOT NULL,
                 price REAL NOT NULL,
-                class_choice INTEGER NOT NULL
+                class_choice INTEGER NOT NULL,
+                route_discount_percent INTEGER NOT NULL DEFAULT 0
             )
         """;
         try (Statement stmt = conn.createStatement()) {
@@ -104,7 +108,7 @@ public class DatabaseManager {
     // ============ МЕТОДЫ ДЛЯ РАБОТЫ С ТАРИФАМИ ============
 
     public static void saveFare(Fare fare) throws SQLException {
-        String sql = "INSERT INTO fares (from_location, to_location, price, class_choice) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO fares (from_location, to_location, price, class_choice, route_discount_percent) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -113,6 +117,7 @@ public class DatabaseManager {
             pstmt.setString(2, fare.toLocation());
             pstmt.setDouble(3, fare.getPrice());
             pstmt.setInt(4, fare.getClassChoice().getCode());
+            pstmt.setInt(5, fare.getRouteDiscountPercent());
             pstmt.executeUpdate();
 
             // Получаем сгенерированный ID
@@ -136,11 +141,18 @@ public class DatabaseManager {
                 int classCode = rs.getInt("class_choice");
                 FareClass fareClass = FareClass.fromIndex(classCode);
 
+                int routeDiscountPercent = rs.getInt("route_discount_percent");
+
+                DiscountStrategy routeDiscount = (routeDiscountPercent > 0)
+                        ? new RouteDiscount(routeDiscountPercent)
+                        : new NoDiscount();
+
                 Fare fare = new Fare(
                         rs.getString("from_location"),
                         rs.getString("to_location"),
                         rs.getDouble("price"),
-                        fareClass
+                        fareClass,
+                        routeDiscount
                 );
                 fare.setId(rs.getInt("id"));
                 fares.add(fare);
@@ -215,7 +227,7 @@ public class DatabaseManager {
 
             pstmt.setInt(1, passengerId);
             pstmt.setInt(2, fareId);
-            pstmt.setDouble(3, ticket.price());
+            pstmt.setDouble(3, ticket.getPrice());
             pstmt.setString(4, ticket.getPurchaseDate());
             pstmt.setString(5, ticket.getTicketNumber());
             pstmt.executeUpdate();
@@ -225,14 +237,15 @@ public class DatabaseManager {
     public static List<Ticket> loadAllTickets() throws SQLException {
         List<Ticket> tickets = new ArrayList<>();
         String sql = """
-            SELECT t.ticket_number, t.price, t.purchase_date,
-                   p.name, p.passport_id, p.birth_date,
-                   f.from_location, f.to_location, f.class_choice
-            FROM tickets t
-            JOIN passengers p ON t.passenger_id = p.id
-            JOIN fares f ON t.fare_id = f.id
-            ORDER BY t.purchase_date DESC
-        """;
+        SELECT t.ticket_number, t.price, t.purchase_date,
+               p.name, p.passport_id, p.birth_date,
+               f.from_location, f.to_location, f.class_choice,
+               f.price AS fare_price, f.route_discount_percent
+        FROM tickets t
+        JOIN passengers p ON t.passenger_id = p.id
+        JOIN fares f ON t.fare_id = f.id
+        ORDER BY t.purchase_date DESC
+    """;
 
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement();
@@ -244,22 +257,31 @@ public class DatabaseManager {
                         rs.getString("passport_id"),
                         rs.getString("birth_date")
                 );
+
                 int classCode = rs.getInt("class_choice");
                 FareClass fareClass = FareClass.fromIndex(classCode);
+
+                int routeDiscountPercent = rs.getInt("route_discount_percent");
+                DiscountStrategy routeDiscount = (routeDiscountPercent > 0)
+                        ? new RouteDiscount(routeDiscountPercent)
+                        : new NoDiscount();
 
                 Fare fare = new Fare(
                         rs.getString("from_location"),
                         rs.getString("to_location"),
-                        rs.getDouble("price"),
-                        fareClass
+                        rs.getDouble("fare_price"),
+                        fareClass,
+                        routeDiscount
                 );
 
                 Ticket ticket = new Ticket(
                         rs.getString("ticket_number"),
                         passenger,
                         fare,
-                        rs.getString("purchase_date")
+                        rs.getString("purchase_date"),
+                        rs.getDouble("price")
                 );
+
                 tickets.add(ticket);
             }
         }

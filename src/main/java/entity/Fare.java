@@ -1,17 +1,24 @@
 package entity;
 
+import strategy.DiscountStrategy;
+import strategy.RouteDiscount;
+
 public class Fare {
     private int id;
     private String fromLocation;
     private String toLocation;
     private double price;
     private FareClass classChoice;
+    private DiscountStrategy routeDiscount;
 
-    public Fare(String fromLocation, String toLocation, double price, FareClass classChoice) {
+    public Fare(
+            String fromLocation, String toLocation, double price,
+            FareClass classChoice, DiscountStrategy routeDiscount) {
         this.fromLocation = fromLocation;
         this.toLocation = toLocation;
         this.price = price;
         this.classChoice = classChoice;
+        this.routeDiscount = routeDiscount;
     }
 
     public int getId() { return id; }
@@ -25,4 +32,29 @@ public class Fare {
     public String getClassName() {
         return classChoice.getName();
     }
+
+    public double getPriceWithRouteDiscount() {
+        return routeDiscount.applyDiscount(price);
+    }
+
+    public int getRouteDiscountPercent() {
+        if (routeDiscount instanceof RouteDiscount) {
+            return (int) ((RouteDiscount) routeDiscount).getPercent();
+        }
+        return 0;
+    }
+
+    @Override
+    public String toString() {
+        int percent = getRouteDiscountPercent();
+
+        String discountInfo = percent > 0 ?
+                " | Скидка: " + percent + "%" : "";
+
+        return fromLocation() + " → " + toLocation() +
+                " | Класс: " + getClassName() +
+                " | Цена: " + getPrice() + " руб." +
+                discountInfo;
+    }
+
 }
