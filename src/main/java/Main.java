@@ -1,4 +1,5 @@
 import core.Airport;
+import entity.Fare;
 import util.InputUtils;
 
 public class Main {
@@ -38,6 +39,11 @@ public class Main {
                         double totalRevenue = airport.calculateTotalRevenue();
                         System.out.printf("Общая выручка от всех билетов: %.2f руб.\n", totalRevenue);
                         break;
+                    case 7:
+                        Fare maxPriceFare = airport.findMaxPriceFare();
+                        System.out.println("Тариф с максимальной ценой:");
+                        System.out.println("   " + maxPriceFare);
+
                     case 0:
                         exit = true;
                         System.out.println("Программа завершена");

@@ -101,6 +101,20 @@ public class Airport {
         }
     }
 
+    public Fare findMaxPriceFare() throws NoFaresAvailableException {
+        if (fares.isEmpty()) {
+            throw new NoFaresAvailableException();
+        }
+
+        Fare maxFare = fares.get(0);
+        for (Fare fare : fares) {
+            if (fare.getPrice() > maxFare.getPrice()) {
+                maxFare = fare;
+            }
+        }
+        return maxFare;
+    }
+
     // Билеты
     public void buyTicket() {
         if (fares.isEmpty()) {
