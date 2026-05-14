@@ -217,7 +217,7 @@ public class Airport {
             System.err.println("Ошибка подсчёта выручки: " + e.getMessage());
             double total = 0;
             for (Ticket ticket : tickets) {
-                total += ticket.price();
+                total += ticket.getPrice();
             }
             return total;
         }

@@ -17,10 +17,6 @@ public class Ticket {
         this.finalPrice = finalPrice;
     }
 
-    public double price() {
-        return fare.getPrice();
-    }
-
     public String getTicketNumber() { return ticketNumber; }
     public Passenger getPassenger() { return passenger; }
     public Fare getFare() { return fare; }
@@ -31,6 +27,6 @@ public class Ticket {
     public String toString() {
         return "Билет " + ticketNumber + " | " + passenger.getName() +
                 " | " + fare.fromLocation() + " -> " + fare.toLocation() +
-                " | " + fare.getClassName() + " | " + fare.getPrice() + " руб. | " + purchaseDate;
+                " | " + fare.getClassName() + " | " + this.getPrice() + " руб. | " + purchaseDate;
     }
 }
