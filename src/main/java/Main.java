@@ -16,7 +16,7 @@ public class Main {
         while (!exit) {
             try {
                 printMenu();
-                int choice = InputUtils.getIntInput("Выберите пункт меню: ", 0, 6);
+                int choice = InputUtils.getIntInput("Выберите пункт меню: ", 0, 7);
 
                 switch (choice) {
                     case 1:
@@ -66,6 +66,7 @@ public class Main {
         System.out.println("4. Показать все билеты");
         System.out.println("5. Общее количество пассажиров");
         System.out.println("6. Стоимость всех проданных билетов");
+        System.out.println("7. Максимальная стоимость тарифа");
         System.out.println("0. Выход");
         System.out.println("-----------------------------------");
     }
