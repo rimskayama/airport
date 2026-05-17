@@ -2,12 +2,10 @@ package core;
 
 import database.DatabaseManager;
 import entity.Fare;
-import entity.FareClass;
 import entity.Passenger;
 import entity.Ticket;
 import exceptions.NoFaresAvailableException;
-import strategy.*;
-import util.InputUtils;
+import strategy.DiscountStrategy;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -52,53 +50,17 @@ public class Airport {
     }
 
     // Тарифы
-    public void addFare() {
-        String fromLocation = InputUtils.getStringInput("Введите пункт отправления: ");
-        String toLocation = InputUtils.getStringInput("Введите пункт назначения: ");
-        double price = InputUtils.getIntInput("Введите цену: ", 1, 1000000);
-        System.out.println("Выберите класс:");
-        for (FareClass fc : FareClass.values()) {
-            System.out.println(fc.ordinal() + " - " + fc.getName());
-        }
-        int classChoice = InputUtils.getIntInput("Ваш выбор: ", 0, 2);
-        FareClass selectedClass = FareClass.fromIndex(classChoice);
-
-        System.out.print("Введите скидку направления в % (0 = без скидки, 10 = 10%): ");
-        int routeDiscountPercent = InputUtils.getIntInput("Ваш выбор:", 0, 100);
-
-        DiscountStrategy routeDiscount = (routeDiscountPercent > 0)
-                ? new RouteDiscount(routeDiscountPercent)
-                : new NoDiscount();
-
-        Fare newFare = new Fare(fromLocation, toLocation, price, selectedClass, routeDiscount);
-
+    public void addFare(Fare newFare) {
         try {
             DatabaseManager.saveFare(newFare);
             fares.add(newFare);
-            System.out.println("Система: Тариф " + newFare.fromLocation() + " -> " +
-                    newFare.toLocation() + " добавлен в БД.");
         } catch (Exception e) {
             System.err.println("Ошибка сохранения тарифа: " + e.getMessage());
         }
     }
 
-    public void showFares() {
-        System.out.println("\n--- Текущие тарифы ---");
-        if (fares.isEmpty()) {
-            System.out.println("Нет доступных тарифов. Сначала добавьте тариф.");
-            return;
-        }
-            for (int i = 0; i < fares.size(); i++) {
-                System.out.println((i + 1) + ". " + fares.get(i));
-            }
-        }
-
-    private DiscountStrategy getPassengerDiscountStrategy(int choice) {
-        switch (choice) {
-            case 1: return new StudentDiscount();
-            case 2: return new SeniorDiscount();
-            default: return new NoDiscount();
-        }
+    public List<Fare> getFares() {
+        return new ArrayList<>(fares);
     }
 
     public Fare findMaxPriceFare() throws NoFaresAvailableException {
@@ -116,43 +78,19 @@ public class Airport {
     }
 
     // Билеты
-    public void buyTicket() {
-        if (fares.isEmpty()) {
-            System.out.println("Нет доступных тарифов. Сначала добавьте тариф.");
-            return;
-        }
-
-        showFares();
-        int fareChoice = InputUtils.getIntInput("Выберите номер тарифа: ", 1, fares.size());
-        Fare selectedFare = fares.get(fareChoice - 1);
-
-        String name = InputUtils.getStringInput("Введите имя пассажира: ");
-        String passportId = InputUtils.getStringInput("Введите серию и номер паспорта: ");
-        String birthDate = InputUtils.getStringInput("Введите дату рождения в формате дд.мм.гггг: ");
-
-        System.out.println("\nЕсть ли у пассажира льгота?");
-        System.out.println("0 - Нет");
-        System.out.println("1 - Студент (-10%)");
-        System.out.println("2 - Пенсионер (-15%)");
-        int discountChoice = InputUtils.getIntInput("Ваш выбор: ", 0, 2);
-        DiscountStrategy passengerDiscount = getPassengerDiscountStrategy(discountChoice);
-
-        // рассчитать цену билета с учётом скидок
-        double basePrice = selectedFare.getPrice();
+    public double calculateFinalPrice(Fare fare, DiscountStrategy passengerDiscount) {
         // скидка направления
-        double priceWithRouteDiscount = selectedFare.getPriceWithRouteDiscount();
+        double priceWithRoute = fare.getPriceWithRouteDiscount();
         // цена со льготной скидкой
-        double finalPrice = passengerDiscount.applyDiscount(priceWithRouteDiscount);
+        return passengerDiscount.applyDiscount(priceWithRoute);
 
-        Passenger passenger = findPassengerByPassport(passportId);
-        if (passenger == null) {
-            passenger = new Passenger(name, passportId, birthDate);
-            passengers.add(passenger);
-            System.out.println("Новый пассажир добавлен в систему.");
-        } else {
-            System.out.println("Пассажир найден в системе.");
-        }
+    }
 
+    public List<Ticket> getTickets() {
+        return new ArrayList<>(tickets);
+    }
+
+    public void buyTicket(Passenger passenger, Fare selectedFare, double finalPrice) {
         try {
             // получить ID пассажира
             int passengerId = DatabaseManager.savePassenger(passenger);
@@ -165,21 +103,6 @@ public class Airport {
             // сохранить билет
             DatabaseManager.saveTicket(newTicket, passengerId, selectedFare.getId());
             tickets.add(newTicket);
-
-            System.out.println("\n✅ Билет успешно куплен!");
-            System.out.println("Номер билета: " + ticketNumber);
-            System.out.println("Пассажир: " + passenger.getName());
-            System.out.println("Маршрут: " + selectedFare.fromLocation() + " -> " + selectedFare.toLocation());
-            System.out.println("Класс: " + selectedFare.getClassName());
-            System.out.println("Дата покупки: " + purchaseDate);
-            System.out.println("Базовая цена: " + basePrice + " руб.");
-            if (selectedFare.getRouteDiscountPercent() > 0) {
-                System.out.println("Скидка направления: -" + selectedFare.getRouteDiscountPercent() + "%");
-            }
-            if (!(passengerDiscount instanceof NoDiscount)) {
-                System.out.println("Льгота: " + passengerDiscount.getName());
-            }
-            System.out.println("Итого: " + String.format("%.2f", finalPrice) + " руб.");
 
         } catch (Exception e) {
             System.err.println("Ошибка при покупке билета: " + e.getMessage());
@@ -195,15 +118,20 @@ public class Airport {
         return null;
     }
 
-    public void showAllTickets() {
-        System.out.println("\n--- Купленные билеты ---");
-        if (tickets.isEmpty()) {
-            System.out.println("Билетов нет");
-            return;
+    public Passenger findOrCreatePassenger(String name, String passportId, String birthDate) {
+        Passenger existing = findPassengerByPassport(passportId);
+        if (existing != null) {
+            return existing;
         }
-        for (Ticket ticket : tickets) {
-            System.out.println(ticket);
+
+        Passenger newPassenger = new Passenger(name, passportId, birthDate);
+        passengers.add(newPassenger);
+        try {
+            DatabaseManager.savePassenger(newPassenger);
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка сохранения пассажира в БД: " + e.getMessage(), e);
         }
+        return newPassenger;
     }
 
     public int calculatePassengerTotal() {
