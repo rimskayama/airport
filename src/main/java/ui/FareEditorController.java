@@ -16,14 +16,19 @@ import javafx.stage.Stage;
 
 public class FareEditorController {
     private final Stage dialog;
-    private Fare resultFare;
+    private final Airport airport;
+    private final Fare fareToEdit;
     private boolean confirmed = false;
 
-    public FareEditorController(Airport airport) {
-        this.dialog = new Stage();
+    private Fare resultFare;
+
+    public FareEditorController(Airport airport, Fare fareToEdit) {
+            this.airport = airport;
+            this.fareToEdit = fareToEdit;
+            this.dialog = new Stage();
 
         dialog.initModality(Modality.APPLICATION_MODAL); // блокировка главного окна
-        dialog.setTitle("Добавление тарифа");
+            dialog.setTitle(fareToEdit == null ? "Добавление тарифа" : "Редактирование тарифа");
 
         VBox root = buildUI();
         dialog.setScene(new Scene(root, 400, 350));
@@ -32,21 +37,21 @@ public class FareEditorController {
     // построение формы
     private VBox buildUI() {
         // поля формы
-        TextField fromField = new TextField();
+        TextField fromField = new TextField(fareToEdit != null ? fareToEdit.fromLocation() : "");
         fromField.setPromptText("Пункт отправления");
 
-        TextField toField = new TextField();
+        TextField toField = new TextField(fareToEdit != null ? fareToEdit.toLocation() : "");
         toField.setPromptText("Пункт назначения");
 
-        TextField priceField = new TextField();
+        TextField priceField = new TextField(fareToEdit != null ? String.valueOf(fareToEdit.getPrice()) : "");
         priceField.setPromptText("Цена (1 - 1 000 000)");
 
         // выпадающий список
         ComboBox<FareClass> classCombo = new ComboBox<>();
         classCombo.getItems().addAll(FareClass.values());
-        classCombo.setValue(FareClass.ECONOMY);
+        classCombo.setValue(fareToEdit != null ? fareToEdit.getClassChoice() : FareClass.ECONOMY);
 
-        TextField discountField = new TextField("0");
+        TextField discountField = new TextField(fareToEdit != null ? String.valueOf(fareToEdit.getRouteDiscountPercent()) : "0");
         discountField.setPromptText("Скидка направления (0-100)");
 
         // валидация - запрет на введение букв в поля цены и скидки
@@ -101,9 +106,7 @@ public class FareEditorController {
 
             // создание объекта тарифа
             FareClass selectedClass = classCombo.getValue();
-            DiscountStrategy routeDiscount = (discountPercent > 0)
-                    ? new RouteDiscount(discountPercent)
-                    : new NoDiscount();
+            DiscountStrategy routeDiscount = Fare.createDiscountStrategy(discountPercent);
 
             resultFare = new Fare(from, to, price, selectedClass, routeDiscount);
             confirmed = true;

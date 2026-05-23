@@ -1,6 +1,7 @@
 package entity;
 
 import strategy.DiscountStrategy;
+import strategy.NoDiscount;
 import strategy.RouteDiscount;
 
 public class Fare {
@@ -55,6 +56,10 @@ public class Fare {
                 " | Класс: " + getClassName() +
                 " | Цена: " + getPrice() + " руб." +
                 discountInfo;
+    }
+
+    public static DiscountStrategy createDiscountStrategy(int percent) {
+        return (percent > 0) ? new RouteDiscount(percent) : new NoDiscount();
     }
 
 }
