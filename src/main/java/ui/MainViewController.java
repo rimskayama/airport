@@ -3,6 +3,7 @@ package ui;
 import core.Airport;
 import entity.Fare;
 import entity.FareClass;
+import exceptions.NoFaresAvailableException;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -10,6 +11,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import strategy.DiscountStrategy;
+
 import java.io.*;
 
 public class MainViewController {
@@ -28,15 +31,21 @@ public class MainViewController {
 
         // кнопки
         Button btnAdd = new Button("Добавить");
+        Button btnEdit = new Button("Редактировать");
+        Button btnDelete = new Button("Удалить");
+        Button btnStats = new Button("Статистика");
         Button btnImport = new Button("Импорт");
         Button btnExport = new Button("Экспорт");
 
-        btnAdd.setOnAction(e -> openEditor());
+        btnAdd.setOnAction(e -> openEditor(null));
+        btnEdit.setOnAction(e -> openEditor(tableView.getSelectionModel().getSelectedItem()));
+        btnDelete.setOnAction(e -> deleteSelectedFare());
+        btnStats.setOnAction(e -> showStatistics());
         btnImport.setOnAction(e -> importFromFile());
         btnExport.setOnAction(e -> exportToFile());
 
         //horizontal box - горизонтальная панель
-        HBox toolbar = new HBox(10, btnAdd, btnImport, btnExport);
+        HBox toolbar = new HBox(10, btnAdd, btnEdit, btnDelete, btnStats, btnImport, btnExport);
         //отступы
         toolbar.setPadding(new Insets(10));
 
@@ -68,39 +77,109 @@ public class MainViewController {
         return root;
     }
 
-    // добавление тарифа
-    private void openEditor() {
+    // добавление или редактирование тарифа
+    private void openEditor(Fare fareToEdit) {
         // создание модального редактора
-        FareEditorController editor = new FareEditorController(airport);
+        FareEditorController editor = new FareEditorController(airport, fareToEdit);
         Fare result = editor.showAndWait();
 
-        // если пользователь нажал "сохранить"
-        if (result != null) {
-            airport.addFare(result); // добавление в БД
-            fareData.add(result); // добавление в таблицу
+        if (result == null) {
+            return;
+        }
+
+        if (fareToEdit != null) {
+            // редактирование
+            int index = fareData.indexOf(fareToEdit);
+            if (index != -1) {
+                // тариф найден → обновляем
+                if (airport.updateFare(fareToEdit, result)) {
+                    fareData.set(index, result);
+                }
+            } else {
+                // тариф не найден
+                showAlert(Alert.AlertType.WARNING, "Внимание",
+                        "Исходный тариф не найден. Проверьте данные или добавьте тариф заново.");
+            }
+        } else {
+            // добавление (fareToEdit == null)
+            airport.addFare(result);
+            fareData.add(result);
+        }
+    }
+
+    // удаление тарифа
+    private void deleteSelectedFare() {
+        Fare selected = tableView.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert(Alert.AlertType.WARNING, "Внимание", "Выберите тариф для удаления");
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Подтверждение");
+        confirm.setHeaderText("Удалить тариф?");
+        confirm.setContentText("Маршрут: " + selected.fromLocation() + " → " + selected.toLocation());
+
+        if (confirm.showAndWait().get() == ButtonType.OK) {
+            try {
+                if (airport.removeFare(selected)) {
+                    fareData.remove(selected);
+                    showAlert(Alert.AlertType.INFORMATION, "Успех", "Тариф удалён");
+                } else {
+                    showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось удалить тариф из базы");
+                }
+            } catch (Exception e) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при удалении: " + e.getMessage());
+            }
+        }
+    }
+
+    //  статистика
+    private void showStatistics() {
+        if (fareData.isEmpty()) {
+            showAlert(Alert.AlertType.INFORMATION, "Статистика", "Нет данных для расчёта");
+            return;
+        }
+
+        try {
+            int totalPassengers = airport.calculatePassengerTotal();
+            double totalRevenue = airport.calculateTotalRevenue();
+            Fare maxPrice = airport.findMaxPriceFare();
+
+            String msg = String.format(
+                    "Сводка по тарифам:\n\n" +
+                            "• Всего маршрутов: %d\n" +
+                            "• Суммарная стоимость: %.2f ₽\n" +
+                            "• Максимальная цена: %.2f ₽\n" +
+                            "• Пассажиров: %d",
+                    fareData.size(), totalRevenue, maxPrice.getPrice(), totalPassengers
+            );
+            showAlert(Alert.AlertType.INFORMATION, "Статистика", msg);
+
+        } catch (NoFaresAvailableException e) {
+            showAlert(Alert.AlertType.WARNING, "Внимание", "Данные изменились. Попробуйте снова.");
         }
     }
 
     // экспорт в csv
     private void exportToFile() {
         // системное окно для сохранения
-        System.out.println("🔹 exportToFile() вызван");
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Сохранить данные в файл");
         fileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
 
-        // Получаем Stage (окно) для показа диалога
+        // получение родительского окна
         Stage stage = (Stage) tableView.getScene().getWindow();
         File file = fileChooser.showSaveDialog(stage);
 
         if (file != null) {
             try (java.io.FileWriter writer = new java.io.FileWriter(file)) {
-                // Заголовки
+                // заголовки
                 writer.write("Откуда,Куда,Цена,Класс,Скидка\n");
 
                 for (Fare fare : airport.getFares()) {
-                    // Формат: Откуда, Куда, Цена, Класс(строка), Скидка(число)
+                    // формат: Откуда, Куда, Цена, Класс(строка), Скидка(число)
                     writer.write(String.format("%s,%s,%.2f,%s,%d\n",
                             fare.fromLocation(),
                             fare.toLocation(),
@@ -132,24 +211,40 @@ public class MainViewController {
             try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
                 String line = reader.readLine(); // пропуск заголовка
                 int importedCount = 0;
+                int lineNumber = 1;
+                StringBuilder errors = new StringBuilder();
 
                 while ((line = reader.readLine()) != null) {
                     // разбивка строки по запятым: ["Москва", "Питер", "5000.00", "ECONOMY", "10"]
-                    String[] parts = line.split(",");
-                    if (parts.length >= 5) {
-                        // парсинг полей из CSV
-                        String from = parts[0].trim();
-                        String to = parts[1].trim();
-                        double price = Double.parseDouble(parts[2].trim());
+                    lineNumber++;
+
+                    try {
+                        String[] parts = line.split(",");
+                        if (parts.length < 5) {
+                            errors.append("Строка ").append(lineNumber).append(": мало данных\n");
+                            continue;
+                        }
+                            // парсинг полей из CSV
+                            String from = parts[0].trim();
+                            String to = parts[1].trim();
+
+                            // валидация цены
+                            double price = Double.parseDouble(parts[2].trim());
+                            if (price < 1 || price > 1_000_000) {
+                                errors.append("Строка ").append(lineNumber).append(": цена ").append(price).append(" вне диапазона\n");
+                                continue;
+                            }
+
+                            // валидация скидки
+                            int discountPercent = Integer.parseInt(parts[4].trim());
+                            if (discountPercent < 0 || discountPercent > 100) {
+                                errors.append("Строка ").append(lineNumber).append(": скидка ").append(discountPercent).append("% вне диапазона\n");
+                                continue;
+                            }
 
                         // enum класса (ожидается "ECONOMY", "BUSINESS" или "FIRST")
                         FareClass fareClass = FareClass.valueOf(parts[3].trim());
-
-                        // стратегия скидки
-                        int discountPercent = Integer.parseInt(parts[4].trim());
-                        strategy.DiscountStrategy routeDiscount = (discountPercent > 0)
-                                ? new strategy.RouteDiscount(discountPercent)
-                                : new strategy.NoDiscount();
+                        DiscountStrategy routeDiscount = Fare.createDiscountStrategy(discountPercent);
 
                         // создание объекта и добавление в систему
                         Fare importedFare = new Fare(from, to, price, fareClass, routeDiscount);
@@ -158,20 +253,32 @@ public class MainViewController {
                         fareData.add(importedFare);
 
                         importedCount++;
+
+                    } catch (Exception e) {
+                        errors.append("Строка ").append(lineNumber).append(": ошибка (").append(e.getMessage()).append(")\n");
                     }
                 }
-                showAlert(Alert.AlertType.INFORMATION, "Успех", "Импортировано тарифов: " + importedCount);
-            } catch (IllegalArgumentException e) {
-                // ошибки парсинга
-                showAlert(Alert.AlertType.ERROR, "Ошибка формата",
-                        "Не удалось распарсить строку. Проверьте, что файл соответствует формату:\n" +
-                                "Откуда, Куда, Цена, Класс(имя константы), Скидка\n" +
-                                "Детали: " + e.getMessage());
-            } catch (Exception e) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось прочитать файл: " + e.getMessage());
+
+                if (importedCount == 0 && errors.length() == 0) {
+                    showAlert(Alert.AlertType.INFORMATION, "Импорт завершён", "Файл пуст или не содержит данных для импорта");
+                }
+
+                if (importedCount > 0) {
+                    showAlert(Alert.AlertType.INFORMATION, "Успех", "Импортировано тарифов: " + importedCount);
+                }
+
+                if (errors.length() > 0) {
+                    showAlert(Alert.AlertType.WARNING, "Обнаружены ошибки",
+                            "Импортировано: " + importedCount + "\n\nОшибки в файле:\n" + errors.toString());
+                }
+
+                } catch (IOException e) {
+                    showAlert(
+                            Alert.AlertType.ERROR, "Ошибка",
+                            "Не удалось прочитать файл: " + e.getMessage());
+                }
             }
         }
-    }
 
     private void showAlert(Alert.AlertType type, String title, String msg) {
         Alert alert = new Alert(type);
