@@ -17,7 +17,7 @@ public class ConsoleApp {
 
         while (!exit) {
             printMenu();
-            int choice = InputUtils.getIntInput("Выберите пункт меню: ", 0, 7);
+            int choice = InputUtils.getIntInput("Выберите пункт меню: ", 0, 9);
 
             switch (choice) {
                 case 1:
@@ -27,18 +27,24 @@ public class ConsoleApp {
                     showFares();
                     break;
                 case 3:
-                    handleBuyTicket();
+                    handleEditFare();
                     break;
                 case 4:
-                    showAllTickets();
+                    handleDeleteFare();
                     break;
                 case 5:
-                    handlePassengerTotal();
+                    handleBuyTicket();
                     break;
                 case 6:
-                    handleTotalRevenue();
+                    showAllTickets();
                     break;
                 case 7:
+                    handlePassengerTotal();
+                    break;
+                case 8:
+                    handleTotalRevenue();
+                    break;
+                case 9:
                     handleMaxPriceFare();
                     break;
                 case 0:
@@ -52,15 +58,24 @@ public class ConsoleApp {
     }
 
     private static void printMenu() {
-        System.out.println("\n--- Система управления аэропортом ---");
+        System.out.println("\n=== Система управления аэропортом ===");
+
+        System.out.println("\n📋 Управление тарифами:");
         System.out.println("1. Добавить тариф");
         System.out.println("2. Показать все тарифы");
-        System.out.println("3. Зарегистрировать покупку билета");
-        System.out.println("4. Показать все билеты");
-        System.out.println("5. Общее количество пассажиров");
-        System.out.println("6. Стоимость всех проданных билетов");
-        System.out.println("7. Максимальная стоимость тарифа");
-        System.out.println("0. Выход");
+        System.out.println("3. Редактировать тариф");
+        System.out.println("4. Удалить тариф");
+
+        System.out.println("\n🎫 Операции с билетами:");
+        System.out.println("5. Зарегистрировать покупку билета");
+        System.out.println("6. Показать все билеты");
+
+        System.out.println("\n📊 Статистика:");
+        System.out.println("7. Общее количество пассажиров");
+        System.out.println("8. Стоимость всех проданных билетов");
+        System.out.println("9. Максимальная стоимость тарифа");
+
+        System.out.println("\n0. Выход");
         System.out.println("-----------------------------------");
     }
 
@@ -68,7 +83,7 @@ public class ConsoleApp {
         try {
             String fromLocation = InputUtils.getStringInput("Введите пункт отправления: ");
             String toLocation = InputUtils.getStringInput("Введите пункт назначения: ");
-            double price = InputUtils.getIntInput("Введите цену: ", 1, 1000000);
+            double price = InputUtils.getDoubleInput("Введите цену: ", 1, 1000000);
 
             System.out.println("Выберите класс:");
             for (FareClass fc : FareClass.values()) {
@@ -93,6 +108,91 @@ public class ConsoleApp {
 
         } catch (Exception e) {
             System.err.println("Ошибка сохранения тарифа: " + e.getMessage());
+        }
+    }
+
+    private static void handleEditFare() {
+        try {
+            showFares();
+            if (airport.getFares().isEmpty()) return;
+
+            int index = InputUtils.getIntInput("Введите номер тарифа для редактирования: ", 1, airport.getFares().size()) - 1;
+            Fare oldFare = airport.getFares().get(index);
+
+            System.out.println("\nРедактирование: " + oldFare.fromLocation() + " → " + oldFare.toLocation());
+            System.out.println("Подсказка: нажмите Enter чтобы оставить значение без изменений\n");
+
+            String fromLocation = InputUtils.getStringInput("Откуда [" + oldFare.fromLocation() + "]: ");
+            if (fromLocation.isEmpty()) fromLocation = oldFare.fromLocation();
+
+            String toLocation = InputUtils.getStringInput("Куда [" + oldFare.toLocation() + "]: ");
+            if (toLocation.isEmpty()) toLocation = oldFare.toLocation();
+
+            double price = InputUtils.getDoubleInputWithSkip(
+                    "Цена", 1.0, 1000000.0, oldFare.getPrice());
+
+            System.out.println("Класс (текущий: " + oldFare.getClassChoice().getName() + "):");
+            for (FareClass fc : FareClass.values()) {
+                System.out.println(fc.ordinal() + " - " + fc.getName());
+            }
+
+            int classChoice = InputUtils.getIntInputWithSkip(
+                    "Ваш выбор",
+                    0,
+                    FareClass.values().length - 1,
+                    oldFare.getClassChoice().ordinal()
+            );
+
+            FareClass selectedClass = FareClass.fromIndex(classChoice);
+
+            int routeDiscountPercent = InputUtils.getIntInputWithSkip("Скидка %", 0, 100, oldFare.getRouteDiscountPercent());
+
+            // создание стратегии и нового объекта
+            DiscountStrategy routeDiscount = (routeDiscountPercent > 0)
+                    ? new RouteDiscount(routeDiscountPercent)
+                    : new NoDiscount();
+
+            Fare newFare = new Fare(fromLocation, toLocation, price, selectedClass, routeDiscount);
+
+            // обновление в системе
+            if (airport.updateFare(oldFare, newFare)) {
+                System.out.println("Тариф обновлён: " + newFare.fromLocation() + " → " + newFare.toLocation());
+            } else {
+                System.out.println("Не удалось обновить тариф");
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка редактирования: " + e.getMessage());
+        }
+    }
+
+    // удаление тарифа
+    private static void handleDeleteFare() {
+        try {
+            showFares();
+            if (airport.getFares().isEmpty()) return;
+
+            int index = InputUtils.getIntInput("Введите номер тарифа для удаления: ", 1, airport.getFares().size()) - 1;
+            Fare toDelete = airport.getFares().get(index);
+
+            System.out.println("\nВы собираетесь удалить:");
+            System.out.println("   " + toDelete);
+
+            String confirm = InputUtils.getStringInput("Подтвердите удаление (да/нет): ").toLowerCase();
+            if (!confirm.equals("да") && !confirm.equals("y") && !confirm.equals("yes")) {
+                System.out.println("Удаление отменено");
+                return;
+            }
+
+            // удаление
+            if (airport.removeFare(toDelete)) {
+                System.out.println("Тариф удалён");
+            } else {
+                System.out.println("Не удалось удалить тариф");
+            }
+
+        } catch (Exception e) {
+            System.err.println("Ошибка удаления: " + e.getMessage());
         }
     }
 

@@ -50,6 +50,7 @@ public class Airport {
     }
 
     // Тарифы
+    // добавить тариф
     public void addFare(Fare newFare) {
         try {
             DatabaseManager.saveFare(newFare);
@@ -75,6 +76,47 @@ public class Airport {
             }
         }
         return maxFare;
+    }
+
+    // обновить тариф
+    public boolean updateFare(Fare oldFare, Fare newFare) {
+        try {
+            if (!DatabaseManager.updateFare(oldFare, newFare)) {
+                return false;
+            }
+
+            // Потом обновляем список
+            for (int i = 0; i < fares.size(); i++) {
+                if (fares.get(i).getId() == oldFare.getId()) {
+                    fares.set(i, newFare);
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            System.err.println("Ошибка обновления тарифа: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // удалить тариф
+    public boolean removeFare(Fare fare) {
+        try {
+            if (DatabaseManager.deleteFare(fare)) {  // Сначала БД
+                // Удаляем из списка по ID, а не по equals()
+                for (int i = 0; i < fares.size(); i++) {
+                    if (fares.get(i).getId() == fare.getId()) {
+                        fares.remove(i);
+                        return true;
+                    }
+                }
+                return false; // Не нашли в списке
+            }
+            return false; // Не удалилось из БД
+        } catch (Exception e) {
+            System.err.println("Ошибка удаления тарифа: " + e.getMessage());
+            return false;
+        }
     }
 
     // Билеты

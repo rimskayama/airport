@@ -107,6 +107,7 @@ public class DatabaseManager {
 
     // ============ МЕТОДЫ ДЛЯ РАБОТЫ С ТАРИФАМИ ============
 
+    // добавить тариф
     public static void saveFare(Fare fare) throws SQLException {
         String sql = "INSERT INTO fares (from_location, to_location, price, class_choice, route_discount_percent) VALUES (?, ?, ?, ?, ?)";
 
@@ -125,6 +126,36 @@ public class DatabaseManager {
             if (rs.next()) {
                 fare.setId(rs.getInt(1));
             }
+        }
+    }
+
+    // обновить тариф
+    public static boolean updateFare(Fare oldFare, Fare newFare) throws SQLException {
+        String sql = "UPDATE fares SET from_location = ?, to_location = ?, price = ?, class_choice = ?, route_discount_percent = ? WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, newFare.fromLocation());
+            stmt.setString(2, newFare.toLocation());
+            stmt.setDouble(3, newFare.getPrice());
+            stmt.setInt(4, newFare.getClassChoice().getCode());
+            stmt.setInt(5, newFare.getRouteDiscountPercent());
+
+            stmt.setInt(6, oldFare.getId());
+
+            return stmt.executeUpdate() > 0;
+
+        }
+    }
+
+    // удалить тариф
+    public static boolean deleteFare(Fare fare) throws SQLException {
+        String sql = "DELETE FROM fares WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, fare.getId());
+            return stmt.executeUpdate() > 0;
         }
     }
 
